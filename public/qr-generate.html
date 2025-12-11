@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Parking - Kiosk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); } 50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8); } }
+    .animate-glow { animation: pulse-glow 2s infinite; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center overflow-hidden relative">
+
+  <!-- BACKGROUND ANIMATION -->
+  <div class="absolute inset-0 z-0 opacity-30">
+    <div class="absolute top-0 left-0 w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+    <div class="absolute bottom-0 right-0 w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
+  </div>
+
+  <!-- STANDBY SCREEN -->
+  <div id="standby-screen" class="z-10 text-center space-y-8 transition-all duration-500">
+    <div class="relative inline-block">
+      <div class="w-64 h-64 rounded-full border-4 border-blue-500/30 flex items-center justify-center animate-[spin_10s_linear_infinite]">
+        <div class="w-56 h-56 rounded-full border-4 border-t-blue-500 border-r-transparent border-b-purple-500 border-l-transparent"></div>
+      </div>
+      <div class="absolute inset-0 flex items-center justify-center">
+        <span class="text-6xl">P</span>
+      </div>
+    </div>
+    
+    <div>
+      <h1 class="text-4xl font-bold mb-2">Selamat Datang</h1>
+      <p class="text-xl text-gray-400">Silakan maju untuk deteksi plat nomor...</p>
+    </div>
+    
+    <div class="flex items-center justify-center gap-2 text-sm text-gray-500">
+      <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+      Sistem Online
+    </div>
+  </div>
+
+  <!-- QR CODE SCREEN -->
+  <div id="qr-screen" class="z-10 hidden flex-col items-center max-w-4xl w-full px-4 transition-all duration-500">
+    <div class="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-8 w-full max-w-md shadow-2xl transform transition-all hover:scale-105">
+      
+      <div class="text-center mb-6">
+        <h2 class="text-2xl font-bold text-blue-300">Kendaraan Terdeteksi!</h2>
+        <p class="text-gray-300 mt-1">Plat Nomor: <span id="plate-display" class="text-3xl font-black text-white block mt-2 tracking-wider">B 1234 XYZ</span></p>
+      </div>
+
+      <!-- QR Container -->
+      <div class="bg-white p-4 rounded-2xl shadow-inner mx-auto w-64 h-64 flex items-center justify-center mb-6">
+        <div id="qrcode"></div>
+      </div>
+
+      <div class="text-center space-y-4">
+        <p class="text-sm text-gray-300">Scan QR di atas untuk mendapatkan<br>Tiket & Pembayaran Digital</p>
+        
+        <div class="flex justify-between items-center bg-black/20 rounded-lg p-3 text-xs text-gray-400">
+          <span>ID Transaksi:</span>
+          <span id="txn-display" class="font-mono text-blue-400">TXN-....</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="scan-status" class="mt-8 text-center opacity-0 transition-opacity duration-300">
+      <span class="px-4 py-2 bg-green-500/20 text-green-400 rounded-full border border-green-500/50 font-bold animate-pulse">
+        📲 User sedang memindai...
+      </span>
+    </div>
+  </div>
+
+  <!-- SCRIPT -->
+  <script type="module">
+    import { db } from './firebase-config.js';
+    import { collection, query, orderBy, limit, onSnapshot, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const standbyScreen = document.getElementById('standby-screen');
+    const qrScreen = document.getElementById('qr-screen');
+    const plateDisplay = document.getElementById('plate-display');
+    const txnDisplay = document.getElementById('txn-display');
+    const qrContainer = document.getElementById('qrcode');
+    const scanStatusInfo = document.getElementById('scan-status');
+
+    let currentDocId = null;
+    let isProcessing = false;
+
+    // 1. DENGARKAN DATA BARU DARI ESP32
+    // Kita ambil data terakhir dari 'parking_logs'
+    const logsRef = collection(db, "parking_logs");
+    const q = query(logsRef, orderBy("entryTime", "desc"), limit(1));
+
+    onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) return;
+
+      const docSnap = snapshot.docs[0];
+      const data = docSnap.data();
+      const docId = docSnap.id;
+
+      // Logika Deteksi Mobil Baru:
+      // 1. Status 'Masuk'
+      // 2. Belum punya ID Transaksi (artinya baru saja diupload ESP32)
+      // 3. Tidak sedang memproses mobil yang sama
+      if (data.status === "Masuk" && !data.transactionId && currentDocId !== docId) {
+        console.log("Mobil Baru Terdeteksi:", data.plateNumber);
+        processNewVehicle(docId, data.plateNumber);
+      }
+      
+      // Logika Reset (Jika user sudah scan di HP)
+      if (docId === currentDocId && data.scanStatus === "scanned") {
+        handleUserScanned();
+      }
+    });
+
+    async function processNewVehicle(docId, plateNumber) {
+      if(isProcessing) return;
+      isProcessing = true;
+      currentDocId = docId;
+
+      // 1. Generate Unik ID
+      const txnId = "TXN-" + Date.now().toString().slice(-6);
+      const secretToken = Math.random().toString(36).substring(2, 10);
+
+      // 2. Update Firestore (Tambahkan ID ini ke data mobil tersebut)
+      try {
+        await updateDoc(doc(db, "parking_logs", docId), {
+          transactionId: txnId,
+          qrToken: secretToken,
+          scanStatus: "waiting", // Status menunggu discan
+          qrGeneratedAt: Date.now()
+        });
+
+        // 3. Generate URL Client
+        // URL ini yang akan dibuka user di HP
+        // Ganti 'domain-anda.web.app' dengan domain firebase hosting Anda nanti
+        const clientUrl = `${window.location.origin}/e-ticket.html?id=${docId}&token=${secretToken}`;
+        
+        // 4. Tampilkan Layar QR
+        showQrScreen(plateNumber, txnId, clientUrl);
+
+      } catch (error) {
+        console.error("Error generating QR:", error);
+        isProcessing = false;
+      }
+    }
+
+    function showQrScreen(plate, txnId, url) {
+      // Hide Standby, Show QR
+      standbyScreen.classList.add('hidden');
+      qrScreen.classList.remove('hidden');
+      
+      // Update Data
+      plateDisplay.innerText = plate;
+      txnDisplay.innerText = txnId;
+      
+      // Generate QR
+      qrContainer.innerHTML = "";
+      new QRCode(qrContainer, {
+        text: url,
+        width: 200,
+        height: 200,
+        colorDark : "#000000",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+      });
+
+      // Timer Reset Otomatis (Jika user tidak scan dalam 60 detik)
+      setTimeout(() => {
+        if(currentDocId) resetScreen();
+      }, 60000);
+    }
+
+    function handleUserScanned() {
+      // User berhasil scan di HP mereka
+      scanStatusInfo.style.opacity = "1";
+      
+      // Beri waktu 3 detik untuk baca notifikasi, lalu reset
+      setTimeout(() => {
+        resetScreen();
+      }, 3000);
+    }
+
+    function resetScreen() {
+      console.log("Resetting Screen...");
+      qrScreen.classList.add('hidden');
+      standbyScreen.classList.remove('hidden');
+      
+      scanStatusInfo.style.opacity = "0";
+      currentDocId = null;
+      isProcessing = false;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>E-Ticket Parkir</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+
+    /* Animations */
+    @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    .animate-slide-in { animation: slideIn 0.6s ease-out forwards; }
+    .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
+    
+    /* Glassmorphism Dark Blue */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    .glass-input {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+    .glass-input:focus {
+      border-color: #3b82f6;
+      background: rgba(0, 0, 0, 0.5);
+      outline: none;
+    }
+
+    /* Slot Indicator */
+    .slot-box { transition: all 0.3s ease; }
+    .pin-input::-webkit-outer-spin-button,
+    .pin-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .pin-input { appearance: textfield; -webkit-appearance: textfield; -moz-appearance: textfield; }
+  </style>
+</head>
+
+<body class="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 min-h-screen text-white flex flex-col items-center justify-center p-4 py-10 relative overflow-x-hidden">
+
+  <!-- Background Effects -->
+  <div class="fixed inset-0 pointer-events-none">
+    <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-[100px] animate-[float_6s_ease-in-out_infinite]"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-purple-600/20 rounded-full blur-[100px] animate-[float_8s_ease-in-out_infinite]"></div>
+  </div>
+
+  <!-- ============================ -->
+  <!-- HALAMAN UTAMA (TIKET & BAYAR) -->
+  <!-- ============================ -->
+  <div id="main-container" class="w-full max-w-md relative z-10 transition-all duration-500 mb-6">
+    
+    <!-- Header -->
+    <div class="text-center mb-6 animate-slide-in">
+      <div class="inline-flex items-center justify-center p-3 bg-blue-500/20 rounded-2xl mb-3 border border-white/10">
+        <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      </div>
+      <h1 class="text-3xl font-bold tracking-tight">Informasi Kendaraan</h1>
+      <p class="text-sm text-blue-200/60 mt-1" id="header-status">Smart Parking System</p>
+    </div>
+
+    <!-- Glass Card Content -->
+    <div class="glass-card rounded-3xl p-1 overflow-hidden animate-slide-in" style="animation-delay: 0.1s;">
+      <div class="p-6 space-y-6">
+
+        <!-- Loading -->
+        <div id="loading" class="text-center py-10">
+          <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p class="text-xs text-white/50">Menghubungkan ke sistem...</p>
+        </div>
+
+        <!-- TICKET CONTENT -->
+        <div id="ticket-info" class="hidden space-y-6">
+          
+          <!-- Info Utama -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+                <p class="text-[10px] uppercase tracking-wider text-white/40 font-bold mb-1">Plat Nomor</p>
+                <h2 id="plate-number" class="text-2xl font-bold text-white">-</h2>
+            </div>
+            <div class="text-right">
+                <p class="text-[10px] uppercase tracking-wider text-white/40 font-bold mb-1">Waktu Masuk</p>
+                <p id="entry-time" class="text-lg font-semibold text-white">-</p>
+            </div>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-white/5 rounded-xl p-3 border border-white/5 text-center">
+              <p class="text-[10px] text-white/40 mb-1">Durasi</p>
+              <p id="duration" class="text-sm font-bold text-yellow-400">-</p>
+            </div>
+            <div class="bg-white/5 rounded-xl p-3 border border-white/5 text-center">
+              <p class="text-[10px] text-white/40 mb-1">Biaya</p>
+              <p id="total-bill" class="text-sm font-bold text-green-400">-</p>
+            </div>
+          </div>
+
+          <!-- Slot Monitoring -->
+          <div class="space-y-2 pt-2 border-t border-white/5">
+             <div class="flex justify-between items-end mb-2">
+                 <h3 class="text-xs font-bold text-white/60">Status Slot Parkir</h3>
+                 <span class="text-[10px] text-white/30">Live Update</span>
+             </div>
+             <div class="grid grid-cols-4 gap-2">
+                <div id="slot-A1" class="slot-box border border-white/10 rounded p-2 text-center bg-white/5"><span class="text-xs font-bold">A1</span></div>
+                <div id="slot-A2" class="slot-box border border-white/10 rounded p-2 text-center bg-white/5"><span class="text-xs font-bold">A2</span></div>
+                <div id="slot-B1" class="slot-box border border-white/10 rounded p-2 text-center bg-white/5"><span class="text-xs font-bold">B1</span></div>
+                <div id="slot-B2" class="slot-box border border-white/10 rounded p-2 text-center bg-white/5"><span class="text-xs font-bold">B2</span></div>
+             </div>
+          </div>
+
+          <!-- PAYMENT SECTION -->
+          <div id="payment-section" class="pt-4">
+            <p class="text-center text-xs text-white/40 mb-3">Masukkan 6 Digit PIN (Simulasi)</p>
+            <div class="flex justify-center gap-2 mb-5 flex-wrap sm:flex-nowrap">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-input glass-input w-10 h-12 rounded-lg text-center text-xl font-bold" oninput="moveToNext(this, 0)">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-input glass-input w-10 h-12 rounded-lg text-center text-xl font-bold" oninput="moveToNext(this, 1)">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-input glass-input w-10 h-12 rounded-lg text-center text-xl font-bold" oninput="moveToNext(this, 2)">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-input glass-input w-10 h-12 rounded-lg text-center text-xl font-bold" oninput="moveToNext(this, 3)">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-input glass-input w-10 h-12 rounded-lg text-center text-xl font-bold" oninput="moveToNext(this, 4)">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="pin-input glass-input w-10 h-12 rounded-lg text-center text-xl font-bold" oninput="moveToNext(this, 5)">
+            </div>
+            
+            <button id="btn-pay" disabled class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+               <span>💳</span> Bayar Sekarang
+            </button>
+          </div>
+
+          <!-- SUCCESS / QR OUT -->
+          <div id="success-section" class="hidden text-center space-y-4">
+             <div class="bg-green-500/20 border border-green-500/40 rounded-xl p-4">
+                <h3 class="text-lg font-bold text-green-400">PEMBAYARAN BERHASIL</h3>
+                <p class="text-xs text-green-200/70">Silakan scan QR ini di pintu keluar</p>
+             </div>
+             <div class="bg-white p-4 rounded-xl inline-block shadow-2xl">
+                <div id="exit-qrcode"></div>
+             </div>
+             <p class="text-[10px] text-white/30 mt-2">QR Code akan hilang setelah Anda keluar</p>
+          </div>
+
+        </div> 
+
+        <!-- Error State -->
+        <div id="error-msg" class="hidden text-center py-8">
+           <p class="text-red-400 font-bold">Data Tidak Ditemukan</p>
+           <p id="error-detail" class="text-xs text-white/40 mt-1">-</p>
+        </div>
+
+      </div>
+    </div>
+    
+    <div class="text-center mt-6">
+        <p class="text-[10px] text-white/20 tracking-widest">© 2025 SMART PARKING SYSTEM</p>
+    </div>
+  </div>
+
+  <!-- ============================ -->
+  <!-- HALAMAN TERIMA KASIH (HIDDEN AWALNYA) -->
+  <!-- ============================ -->
+  <div id="thank-you-screen" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900 text-center p-6 animate-fade-in">
+    
+    <div class="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(34,197,94,0.4)] animate-bounce">
+        <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+    </div>
+
+    <h1 class="text-3xl md:text-4xl font-bold text-white mb-4">Terima Kasih!</h1>
+    <p class="text-lg text-blue-200 mb-2">Hati-Hati di Jalan</p>
+    
+    <div class="h-px w-24 bg-white/10 my-6"></div>
+    
+    <p class="text-gray-400">Sampai jumpa kembali.<br><span class="text-green-400 font-semibold">Hati-hati di jalan!</span></p>
+    
+    <div class="absolute bottom-10 text-xs text-white/10">
+        Sesi Berakhir
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, doc, updateDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAqFcSWRj7qyEFVyfhCAaIyTdU7xaoNyk0",
+      authDomain: "spoton-park.firebaseapp.com",
+      projectId: "spoton-park",
+      storageBucket: "spoton-park.firebasestorage.app",
+      messagingSenderId: "87537754672",
+      appId: "1:87537754672:web:8a4dfdd6166c47996c43f5",
+      measurementId: "G-LVVRWV0TPV"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const RATE_FIRST_HOUR = 3000; 
+    const RATE_NEXT_HOUR = 2000;
+    let currentTotalAmount = 0;
+    let vehicleDocRef = null;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const docId = urlParams.get('id');
+    const token = urlParams.get('token');
+
+    const uiLoading = document.getElementById('loading');
+    const uiInfo = document.getElementById('ticket-info');
+    const btnPay = document.getElementById('btn-pay');
+    const pinInputs = document.querySelectorAll('.pin-input');
+
+    async function init() {
+      startSlotMonitoring();
+      
+      if (!docId || !token) return showError("Link tidak valid");
+
+      vehicleDocRef = doc(db, "parking_logs", docId);
+
+      // GUNAKAN ON SNAPSHOT UNTUK REAL-TIME UPDATE
+      onSnapshot(vehicleDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+
+          // 1. CEK STATUS KELUAR (Logic Baru)
+          // Jika status sudah 'completed' atau 'exitProcessed' true, tampilkan Terima Kasih
+          if (data.status === 'completed' || data.exitProcessed === true) {
+             showThankYouScreen();
+             return;
+          }
+
+          if (data.qrToken !== token) return showError("Token Salah");
+
+          // Kalkulasi Biaya
+          let entryTimeMs = data.entryTime; 
+          if (typeof entryTimeMs === 'string') entryTimeMs = new Date(entryTimeMs).getTime();
+          const nowMs = Date.now();
+          const diffMs = nowMs - entryTimeMs;
+          
+          const totalMinutes = Math.floor(diffMs / (1000 * 60));
+          const hours = Math.floor(totalMinutes / 60);
+          const minutes = totalMinutes % 60;
+          const billableHours = Math.max(1, Math.ceil(totalMinutes / 60));
+
+          currentTotalAmount = RATE_FIRST_HOUR + ((billableHours > 1) ? (billableHours - 1) * RATE_NEXT_HOUR : 0);
+
+          // Render Data
+          document.getElementById('plate-number').innerText = data.plateNumber || "-";
+          document.getElementById('entry-time').innerText = new Date(entryTimeMs).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+          document.getElementById('duration').innerText = `${hours}j ${minutes}m`;
+          document.getElementById('total-bill').innerText = `Rp ${currentTotalAmount.toLocaleString('id-ID')}`;
+
+          // Status Pembayaran
+          if (data.paymentStatus === 'paid') {
+            showSuccessState(data.exitToken || 'PAID');
+          } else {
+             // Reset Kiosk jika belum
+             if (data.scanStatus !== 'scanned') {
+                updateDoc(vehicleDocRef, { scanStatus: 'scanned', scannedAt: Date.now() });
+             }
+          }
+
+          uiLoading.classList.add('hidden');
+          uiInfo.classList.remove('hidden');
+        } else {
+          showError("Data Hilang");
+        }
+      }, (error) => {
+          showError("Koneksi Terputus");
+      });
+    }
+
+    function showThankYouScreen() {
+        const mainContainer = document.getElementById('main-container');
+        const thankYouScreen = document.getElementById('thank-you-screen');
+        
+        // Efek transisi
+        mainContainer.style.opacity = '0';
+        setTimeout(() => {
+            mainContainer.classList.add('hidden');
+            thankYouScreen.classList.remove('hidden');
+        }, 500);
+    }
+
+    function startSlotMonitoring() {
+      const slotRef = collection(db, "parking_slots");
+      onSnapshot(slotRef, (snapshot) => {
+        snapshot.forEach((doc) => {
+           const id = doc.id; 
+           const status = doc.data().status || "Tersedia";
+           const el = document.getElementById(`slot-${id}`);
+           if (el) {
+             el.className = "slot-box border border-white/10 rounded p-2 text-center bg-white/5 transition-all duration-300";
+             if (status.toLowerCase() === "terisi" || status.toLowerCase() === "occupied") {
+               el.classList.add("bg-red-500/20", "border-red-500/50", "text-red-300");
+             } else {
+               el.classList.add("bg-green-500/20", "border-green-500/50", "text-green-400");
+             }
+           }
+        });
+      });
+    }
+
+    // --- PIN & PAYMENT ---
+    window.moveToNext = (elem, index) => {
+      elem.value = elem.value.replace(/[^0-9]/g, '');
+      if (elem.value.length > 0) {
+        if (index < 5) pinInputs[index + 1].focus();
+        else { elem.blur(); checkPin(); }
+      }
+    };
+
+    function checkPin() {
+      let pin = "";
+      pinInputs.forEach(i => pin += i.value);
+      if (pin.length === 6) {
+        btnPay.disabled = false;
+        btnPay.classList.replace('bg-white/10', 'bg-blue-600');
+        btnPay.classList.replace('text-white/30', 'text-white');
+      } else {
+        btnPay.disabled = true;
+        btnPay.classList.replace('bg-blue-600', 'bg-white/10');
+        btnPay.classList.replace('text-white', 'text-white/30');
+      }
+    }
+
+    btnPay.addEventListener('click', async () => {
+      btnPay.innerHTML = `<div class="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin"></div> Processing...`;
+      btnPay.disabled = true;
+
+      try {
+        await new Promise(r => setTimeout(r, 1500));
+        const exitToken = "OUT-" + Math.random().toString(36).substr(2, 8).toUpperCase();
+
+        if (vehicleDocRef) {
+          await updateDoc(vehicleDocRef, {
+            paymentStatus: 'paid',
+            amount: currentTotalAmount,
+            paidAt: Date.now(),
+            exitToken: exitToken,
+            status: 'ready_to_exit'
+          });
+        }
+        showSuccessState(exitToken);
+      } catch (e) {
+        alert("Gagal Bayar");
+        btnPay.innerText = "Coba Lagi";
+        btnPay.disabled = false;
+      }
+    });
+
+    function showSuccessState(tokenData) {
+      document.getElementById('payment-section').classList.add('hidden');
+      document.getElementById('success-section').classList.remove('hidden');
+      document.getElementById('header-status').innerText = "Pembayaran Sukses";
+      document.getElementById('header-status').classList.add('text-green-400');
+
+      const qrDiv = document.getElementById('exit-qrcode');
+      qrDiv.innerHTML = "";
+      new QRCode(qrDiv, {
+        text: tokenData,
+        width: 180,
+        height: 180,
+        colorDark : "#000000",
+        colorLight : "#ffffff"
+      });
+    }
+
+    function showError(msg) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('error-msg').classList.remove('hidden');
+      document.getElementById('error-detail').innerText = msg;
+    }
+
+    init();
+  </script>
+</body>
+</html>

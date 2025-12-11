@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpotOn Park - Smart Parking</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+
+    <style>
+        /* --- 1. Impor Font & Setup Font Kustom --- */
+        @font-face {
+            /* Ini adalah NAMA yang akan Anda gunakan di CSS */
+            font-family: 'Peace Sans'; 
+            
+            /* Ini adalah LOKASI file font Anda */
+            src: url('font/Peace Sans Webfont.ttf') format('woff2'),
+                url('font/Peace Sans.otf') format('woff');
+        }
+        /* Impor Raleway dari Google Fonts untuk body */
+        @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;700&display=swap');
+
+        /* PENTING: Font 'Peace Sans' tidak tersedia di Google Fonts.
+          Anda harus mengunduhnya (misal: dari Dafont) dan meletakkannya 
+          di folder 'fonts' di sebelah file HTML Anda.
+        */
+        @font-face {
+            font-family: 'Peace Sans';
+            /* Sesuaikan path ke file font Anda */
+            src: url('fonts/Peace Sans.woff2') format('woff2'),
+                 url('fonts/Peace Sans.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        /* --- 2. Global & Reset --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Raleway', sans-serif;
+            color: #ffffff;
+            line-height: 1.6;
+            background-color: #042654;
+        }
+
+        /* --- 3. Container Utama & Background --- */
+        .hero-container {
+            min-height: 100vh; /* Gunakan min-height agar bisa memanjang jika perlu */
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                linear-gradient(rgba(4, 38, 84, 0.90), rgba(4, 38, 84, 0.90)),
+                url('./image/back.jpg'); /* GANTI NAMA FILE GAMBAR ANDA */
+            background-size: cover;
+            background-position: center;
+            padding: 2rem 4rem;
+        }
+
+        /* --- 4. Header (Logo & Ikon User) --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        /* BARU: Container untuk logo & teks */
+        header .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px; /* Jarak antara ikon dan teks */
+        }
+
+        /* BARU: Styling untuk ikon logo */
+        header .logo-icon {
+            background-color: #f0eadd; /* Background putih */
+            color: #042654; /* Warna ikon (biru tua) */
+            width: 38px;
+            height: 38px;
+            border-radius: 50%; /* Frame bulat */
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem; /* Ukuran ikon di dalamnya */
+        }
+
+        header .logo-icon img {
+            width: 100%; /* Membuat gambar memenuhi bingkai */
+            height: 100%; /* Membuat gambar memenuhi bingkai */
+            object-fit: cover; /* Menjaga rasio & mengisi penuh (mungkin memotong sedikit) */
+        }
+
+        /* BARU: Teks di sebelah logo */
+        header .logo-text {
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            font-family: 'Raleway', sans-serif;
+        }
+
+        header .user-icon {
+            font-size: 1.2rem;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        /* --- 5. Layout Konten Utama (Grid) --- */
+        
+        /* DIUBAH: Layout diubah menjadi 1 kolom */
+        .hero-content {
+            flex-grow: 1; 
+            display: grid;
+            /* Layout baru: 1 kolom, 3 baris */
+            grid-template-areas:
+                "title"
+                "description"
+                "features";
+            grid-template-columns: 1fr; /* 1 kolom penuh */
+            grid-template-rows: auto auto auto; /* Tinggi otomatis */
+            align-items: center;
+            justify-items: center; /* Semua item di-center horizontal */
+            gap: 2rem; /* Jarak antar bagian */
+            padding-top: 1rem;
+        }
+
+        /* --- 6. Styling Tiap Bagian --- */
+
+        /* Judul "SpotOn PARK" */
+        .title-section {
+            grid-area: title;
+            text-align: center;
+        }
+        .title-section h1 {
+            font-family: 'Peace Sans', sans-serif;
+            font-size: 8rem; /* Sedikit dikecilkan agar pas */
+            line-height: 1;
+        }
+        .title-section h2 {
+            font-family: 'Peace Sans', sans-serif;
+            font-size: 6rem; /* Sedikit dikecilkan agar pas */
+            line-height: 1;
+            margin-top: -1.5rem;
+        }
+
+        /* DIUBAH: Bagian Deskripsi */
+        .description-section {
+            grid-area: description;
+            text-align: center; /* Teks rata tengah */
+            max-width: 600px; /* Batasi lebar agar mudah dibaca */
+        }
+        .description-section p {
+            font-size: 1.1rem;
+            font-family: 'Raleway', sans-serif;
+        }
+
+        /* DIUBAH: Bagian Fitur */
+        .features-section {
+            grid-area: features;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 800px; /* Batasi lebar agar proporsional */
+            margin-top: 1rem; /* Jarak dari deskripsi */
+        }
+
+        /* DIUBAH: Styling Kotak Fitur */
+        .feature-box {
+            background-color: #f0eadd; 
+            color: #000000;
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            font-weight: 700;
+            font-family: 'Raleway', sans-serif;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            
+            /* BARU: Efek bayangan / 3D */
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.25);
+            
+            /* BARU: Transisi untuk hover */
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* BARU: Efek "menonjol" saat di-hover */
+        .feature-box:hover {
+            transform: translateY(-5px); /* Mengangkat kotak ke atas */
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.35); /* Bayangan lebih kuat */
+        }
+
+        .feature-box i {
+            font-size: 2.5rem;
+            margin-bottom: 0.75rem;
+            color: #000000; 
+        }
+
+        /* --- 7. Desain Responsif (Mobile) --- */
+        @media (max-width: 900px) {
+            .hero-container {
+                padding: 1.5rem;
+                height: auto;
+            }
+            .hero-content {
+                gap: 2rem;
+                padding-bottom: 2rem; /* Beri jarak di bawah */
+            }
+            .title-section h1 {
+                font-size: 5rem;
+            }
+            .title-section h2 {
+                font-size: 4rem;
+                margin-top: -1rem;
+            }
+        }
+
+        @media (max-width: 600px) {
+            /* Tumpuk kotak fitur di layar sangat kecil */
+            .features-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="hero-container">
+        <header>
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <img src="./image/logo.jpg" alt="Logo SpotOn">
+                </div>
+                <span class="logo-text">SMART PARKING</span>
+            </div>
+            
+            <div class="user-icon">
+                <i class="fas fa-user"></i>
+            </div>
+        </header>
+
+        <main class="hero-content">
+            <div class="title-section">
+                <h1>SpotOn</h1>
+                <h2>PARK</h2>
+            </div>
+            
+            <div class="features-section">
+                <div class="feature-box">
+                    <i class="fas fa-users"></i>
+                    <p>PORTAL KELUAR</p>
+                </div>
+                <div class="feature-box">
+                    <i class="fas fa-image"></i>
+                    <p>PORTAL MASUK</p>
+                </div>
+                <div class="feature-box">
+                    <i class="fas fa-headset"></i>
+                    <p>ADMIN DASHBOARD</p>
+                </div>
+            </div>
+            
+            <div class="description-section">
+                <p>Stop circling. Start parking. SpotOn Park is the intelligent system that uses real-time data to guide you to the nearest available parking space, ensuring a seamless and stress-free parking experience every time. Your perfect spot, guaranteed.</p>
+            </div>
+        </main>
+    </div>
+    <!-- JavaScript file -->
+  <script type="module" src="./script.js"></script>
+</body>
+</html>

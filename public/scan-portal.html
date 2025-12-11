@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Parking - Scan Portal Keluar</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Library QR Code Scanner (Versi Stabil) - Dimuat di Head -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
+      50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.6); }
+    }
+    .animate-slide-in { animation: slideIn 0.6s ease-out forwards; }
+    .animate-pulse-slow { animation: pulse 2s ease-in-out infinite; }
+    .animate-float { animation: float 3s ease-in-out infinite; }
+    .animate-glow { animation: glow 2s ease-in-out infinite; }
+    
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .gradient-text {
+      background: linear-gradient(135deg, #ffffff 0%, #a3d5ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .scanner-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    
+    .scanner-frame {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 250px;
+      height: 250px; /* Kotak Scan Persegi */
+      border: 3px solid #10B981;
+      border-radius: 12px;
+      background: transparent;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    }
+    
+    .scan-line {
+      position: absolute;
+      height: 3px;
+      background: #10B981;
+      width: 100%;
+      animation: scan 2s linear infinite;
+      box-shadow: 0 0 10px #10B981;
+    }
+    
+    @keyframes scan {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+    
+    .status-open {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
+      border: 2px solid rgba(34, 197, 94, 0.5);
+    }
+    
+    .status-locked {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1));
+      border: 2px solid rgba(239, 68, 68, 0.5);
+    }
+    
+    .status-checking {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
+      border: 2px solid rgba(245, 158, 11, 0.5);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white font-sans overflow-x-hidden">
+  <!-- Animated Background Elements -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-20 left-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl animate-float"></div>
+    <div class="absolute bottom-20 right-10 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float" style="animation-delay: 1s;"></div>
+  </div>
+
+  <!-- Notifikasi Izin Kamera (Akan muncul jika kamera belum diizinkan) -->
+  <div id="camera-permission-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 hidden backdrop-blur-sm">
+    <div class="bg-white text-gray-800 p-6 rounded-2xl max-w-md w-full mx-4 text-center shadow-2xl border-4 border-blue-500">
+      <div class="text-5xl mb-4">📷</div>
+      <h2 class="text-2xl font-bold mb-2">Izin Kamera Diperlukan</h2>
+      <p class="text-gray-600 mb-6">Aplikasi ini memerlukan akses kamera untuk memindai QR Code tiket parkir.</p>
+      <div class="flex flex-col gap-3">
+        <button onclick="requestCameraPermission()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all transform active:scale-95 shadow-lg">
+          Izinkan Kamera
+        </button>
+        <p class="text-xs text-gray-400 mt-2">Jika tombol tidak bekerja, silakan cek pengaturan browser Anda dan izinkan kamera secara manual.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="relative p-4 md:p-8 max-w-2xl mx-auto">
+    <!-- Header -->
+    <header class="mb-6 md:mb-8 text-center animate-slide-in">
+      <div class="flex items-center justify-center gap-3 mb-3">
+        <svg class="w-8 h-8 md:w-10 md:h-10 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+        </svg>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight gradient-text">Portal Keluar Parkir</h1>
+      </div>
+      <p class="text-white/60 text-sm md:text-base">Scan barcode dari client untuk membuka portal</p>
+    </header>
+
+    <!-- Scanner Section -->
+    <div class="glass-effect rounded-2xl p-4 md:p-6 mb-6 animate-slide-in">
+      <div class="text-center mb-4 md:mb-6">
+        <h2 class="text-lg md:text-xl font-bold mb-2 flex items-center justify-center gap-2">
+          <svg class="w-5 h-5 md:w-6 md:h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+          </svg>
+          Scanner Barcode
+        </h2>
+        <p class="text-white/60 text-sm md:text-base">Arahkan kamera ke barcode yang tertera di client</p>
+      </div>
+
+      <!-- QR Code Scanner -->
+      <div class="relative mb-4 md:mb-6">
+        <div id="reader" class="w-full rounded-lg overflow-hidden mx-auto max-w-md" style="min-height: 300px; background: #000;"></div>
+        <div class="scanner-overlay">
+          <div class="scanner-frame">
+            <div class="scan-line"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Camera Info -->
+      <div class="text-center">
+        <p class="text-white/50 text-xs md:text-sm">Pastikan barcode dalam frame scanner</p>
+      </div>
+    </div>
+
+    <!-- Status Display -->
+    <div id="statusContainer" class="hidden animate-slide-in">
+      <div class="glass-effect rounded-2xl p-4 md:p-6 mb-4 md:mb-6">
+        <div class="text-center">
+          <div id="statusIcon" class="text-4xl md:text-5xl mb-3 md:mb-4">⏳</div>
+          <h3 id="statusTitle" class="text-xl md:text-2xl font-bold mb-2">Memeriksa...</h3>
+          <p id="statusMessage" class="text-white/70 mb-4 md:mb-6 text-sm md:text-base">Sedang memvalidasi transaksi</p>
+          
+          <!-- Transaction Details -->
+          <div id="transactionDetails" class="text-left bg-white/5 rounded-xl p-4 mt-4 hidden">
+            <h4 class="font-semibold mb-3 text-center text-white/80">Detail Transaksi</h4>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div class="text-white/60">Transaction ID:</div>
+              <div id="detailId" class="font-mono text-white/90 text-xs truncate">-</div>
+              <div class="text-white/60">Plat Nomor:</div>
+              <div id="detailPlate" class="font-semibold text-white">-</div>
+              <div class="text-white/60">Status:</div>
+              <div id="detailStatus" class="font-semibold">-</div>
+              <div class="text-white/60">Waktu Masuk:</div>
+              <div id="detailTime" class="text-white/90 text-xs">-</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex gap-3 md:gap-4 animate-slide-in">
+      <button id="toggleCamera" class="flex-1 glass-effect rounded-xl p-3 md:p-4 text-center hover:bg-white/20 transition-all duration-300 group">
+        <div class="flex items-center justify-center gap-2 md:gap-3">
+          <svg class="w-5 h-5 md:w-6 md:h-6 text-blue-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          <div class="text-left">
+            <div class="font-bold text-sm md:text-base">Ganti Kamera</div>
+            <div class="text-xs md:text-sm text-white/60">Switch camera</div>
+          </div>
+        </div>
+      </button>
+      
+      <button id="resetScanner" class="flex-1 glass-effect rounded-xl p-3 md:p-4 text-center hover:bg-white/20 transition-all duration-300 group">
+        <div class="flex items-center justify-center gap-2 md:gap-3">
+          <svg class="w-5 h-5 md:w-6 md:h-6 text-green-400 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          <div class="text-left">
+            <div class="font-bold text-sm md:text-base">Reset Scanner</div>
+            <div class="text-xs md:text-sm text-white/60">Scan ulang</div>
+          </div>
+        </div>
+      </button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center text-xs md:text-sm text-white/50 mt-6 md:mt-8 glass-effect rounded-xl p-3 md:p-4 animate-slide-in">
+      <div class="flex flex-col md:flex-row items-center justify-center gap-1 md:gap-4">
+        <span>&copy; 2025 Smart Parking System</span>
+        <span class="hidden md:inline">•</span>
+        <span class="flex items-center gap-2">Portal Scan Keluar</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Firebase Configuration & Logic -->
+  <script type="module" src="scan-portal.js"></script>
+  
+  <script>
+    // Fungsi Global untuk Request Permission dari Modal
+    function requestCameraPermission() {
+      document.getElementById('camera-permission-modal').classList.add('hidden');
+      // Reload halaman untuk memicu inisialisasi ulang
+      window.location.reload();
+    }
+  </script>
+</body>
+</html>

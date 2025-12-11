@@ -1,0 +1,51 @@
+type User @table {
+  displayName: String!
+  email: String!
+  createdAt: Timestamp!
+  userType: String!
+  phoneNumber: String
+  profilePictureUrl: String
+}
+
+type ParkingLot @table {
+  owner: User!
+  name: String!
+  address: String!
+  latitude: Float!
+  longitude: Float!
+  totalSpots: Int!
+  createdAt: Timestamp!
+  description: String
+  operatingHours: String
+  contactPhone: String
+  contactEmail: String
+}
+
+type ParkingSpot @table {
+  parkingLot: ParkingLot!
+  spotNumber: String!
+  status: String!
+  spotType: String!
+  createdAt: Timestamp!
+  hourlyRate: Float
+  dailyRate: Float
+}
+
+type Reservation @table {
+  driver: User!
+  parkingSpot: ParkingSpot!
+  startTime: Timestamp!
+  endTime: Timestamp!
+  status: String!
+  totalCost: Float!
+  createdAt: Timestamp!
+  paymentMethod: String
+}
+
+type Review @table {
+  driver: User!
+  parkingLot: ParkingLot!
+  rating: Int!
+  createdAt: Timestamp!
+  comment: String
+}
